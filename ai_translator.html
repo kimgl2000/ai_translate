@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 번역기</title>
+<style>
+  :root {
+    --bg: #0e0f12;
+    --panel: #16181d;
+    --panel-2: #1c1f26;
+    --line: #2a2e37;
+    --text: #f2f3f5;
+    --muted: #888d97;
+    --accent: #6c8cff;
+    --accent-soft: #2a3354;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", sans-serif;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+  header {
+    padding: 20px 28px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .logo-dot {
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--accent);
+  }
+  header h1 {
+    font-size: 19px; font-weight: 600; letter-spacing: -0.2px;
+  }
+  header .sub { color: var(--muted); font-size: 13px; font-weight: 400; margin-left: 2px; }
+
+  .lang-bar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 28px;
+    border-bottom: 1px solid var(--line);
+    flex-wrap: wrap;
+  }
+  select {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 15px;
+    font-family: inherit;
+    cursor: pointer;
+    outline: none;
+  }
+  select:focus { border-color: var(--accent); }
+  .swap {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--muted);
+    border-radius: 10px;
+    width: 42px; height: 42px;
+    cursor: pointer;
+    font-size: 18px;
+    transition: color .15s, border-color .15s;
+  }
+  .swap:hover { color: var(--accent); border-color: var(--accent); }
+
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--line);
+    min-height: 0;
+  }
+  @media (max-width: 760px) {
+    main { grid-template-columns: 1fr; }
+  }
+  .pane {
+    background: var(--panel);
+    display: flex;
+    flex-direction: column;
+    min-height: 320px;
+  }
+  .pane-head {
+    padding: 12px 24px;
+    font-size: 13px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--line);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  textarea, .output {
+    flex: 1;
+    border: none;
+    outline: none;
+    resize: none;
+    background: transparent;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 38px;
+    line-height: 1.45;
+    font-weight: 500;
+    padding: 28px 24px;
+    width: 100%;
+  }
+  textarea::placeholder { color: #4a4e57; }
+  .output {
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .output.placeholder { color: #4a4e57; }
+  .count { font-variant-numeric: tabular-nums; }
+  .toolbar {
+    padding: 12px 24px;
+    border-top: 1px solid var(--line);
+    display: flex; gap: 10px; align-items: center; justify-content: flex-end;
+  }
+  .btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 22px;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: opacity .15s;
+  }
+  .btn:hover { opacity: .9; }
+  .btn:disabled { opacity: .4; cursor: default; }
+  .btn-ghost {
+    background: transparent; color: var(--muted);
+    border: 1px solid var(--line);
+  }
+  .btn-ghost:hover { color: var(--accent); border-color: var(--accent); }
+  .clear {
+    background: none; border: none; color: var(--muted);
+    cursor: pointer; font-size: 13px;
+  }
+  .clear:hover { color: var(--text); }
+  .dots span {
+    display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent); margin: 0 2px;
+    animation: pulse 1.2s infinite ease-in-out;
+  }
+  .dots span:nth-child(2) { animation-delay: .2s; }
+  .dots span:nth-child(3) { animation-delay: .4s; }
+  @keyframes pulse { 0%,100% { opacity: .25; } 50% { opacity: 1; } }
+
+  /* font size control */
+  .fontctl { display: flex; align-items: center; gap: 6px; }
+  .fontctl button {
+    background: var(--panel-2); border: 1px solid var(--line);
+    color: var(--text); border-radius: 8px; width: 30px; height: 30px;
+    cursor: pointer; font-size: 14px;
+  }
+  .fontctl button:hover { border-color: var(--accent); }
+</style>
+</head>
+<body>
+  <header>
+    <div class="logo-dot"></div>
+    <h1>AI 번역기 <span class="sub">— 입력하면 바로 번역됩니다</span></h1>
+  </header>
+
+  <div class="lang-bar">
+    <select id="src">
+      <option value="자동 감지">자동 감지</option>
+      <option value="한국어">한국어</option>
+      <option value="영어">English</option>
+      <option value="아랍어">العربية</option>
+      <option value="일본어">日本語</option>
+      <option value="중국어">中文</option>
+      <option value="프랑스어">Français</option>
+      <option value="스페인어">Español</option>
+    </select>
+    <button class="swap" id="swap" title="언어 바꾸기">⇄</button>
+    <select id="tgt">
+      <option value="영어">English</option>
+      <option value="한국어">한국어</option>
+      <option value="아랍어">العربية</option>
+      <option value="일본어">日本語</option>
+      <option value="중국어">中文</option>
+      <option value="프랑스어">Français</option>
+      <option value="스페인어">Español</option>
+    </select>
+    <div class="fontctl" style="margin-left:auto;">
+      <span style="color:var(--muted);font-size:13px;">글자 크기</span>
+      <button id="fmin">−</button>
+      <button id="fplus">+</button>
+    </div>
+  </div>
+
+  <main>
+    <section class="pane">
+      <div class="pane-head">
+        <span>원문</span>
+        <button class="clear" id="clear">지우기</button>
+      </div>
+      <textarea id="input" placeholder="여기에 입력하세요…" autofocus></textarea>
+      <div class="toolbar">
+        <span class="count" id="count" style="color:var(--muted);font-size:13px;margin-right:auto;">0자</span>
+        <button class="btn" id="go">번역하기</button>
+      </div>
+    </section>
+
+    <section class="pane">
+      <div class="pane-head">
+        <span>번역 결과</span>
+        <button class="clear" id="copy">복사</button>
+      </div>
+      <div class="output placeholder" id="output">번역 결과가 여기에 표시됩니다.</div>
+      <div class="toolbar">
+        <span id="status" style="color:var(--muted);font-size:13px;margin-right:auto;"></span>
+      </div>
+    </section>
+  </main>
+
+<script>
+  const input = document.getElementById('input');
+  const output = document.getElementById('output');
+  const go = document.getElementById('go');
+  const status = document.getElementById('status');
+  const count = document.getElementById('count');
+  const srcSel = document.getElementById('src');
+  const tgtSel = document.getElementById('tgt');
+
+  let fontSize = 38;
+  function applyFont() {
+    input.style.fontSize = fontSize + 'px';
+    output.style.fontSize = fontSize + 'px';
+  }
+  document.getElementById('fplus').onclick = () => { fontSize = Math.min(96, fontSize + 6); applyFont(); };
+  document.getElementById('fmin').onclick = () => { fontSize = Math.max(18, fontSize - 6); applyFont(); };
+
+  input.addEventListener('input', () => {
+    count.textContent = input.value.length + '자';
+  });
+
+  document.getElementById('clear').onclick = () => {
+    input.value = ''; count.textContent = '0자'; input.focus();
+  };
+
+  document.getElementById('swap').onclick = () => {
+    const s = srcSel.value, t = tgtSel.value;
+    if (s === '자동 감지') return;
+    srcSel.value = t; tgtSel.value = s;
+  };
+
+  document.getElementById('copy').onclick = async () => {
+    if (output.classList.contains('placeholder')) return;
+    try { await navigator.clipboard.writeText(output.textContent); status.textContent = '복사됨'; setTimeout(()=>status.textContent='',1500); } catch(e){}
+  };
+
+  async function translate() {
+    const text = input.value.trim();
+    if (!text) { input.focus(); return; }
+    const src = srcSel.value, tgt = tgtSel.value;
+
+    go.disabled = true;
+    output.classList.remove('placeholder');
+    output.innerHTML = '<span class="dots"><span></span><span></span><span></span></span>';
+    status.textContent = '번역 중…';
+
+    const srcPart = src === '자동 감지' ? '' : `from ${src} `;
+    const prompt = `Translate the following text ${srcPart}into ${tgt}. Output ONLY the translation, with no quotes, no explanations, no labels.\n\nText:\n${text}`;
+
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1000,
+          messages: [{ role: "user", content: prompt }]
+        })
+      });
+      const data = await res.json();
+      const out = (data.content || []).map(b => b.text || "").join("").trim();
+      output.textContent = out || "(번역 결과 없음)";
+      status.textContent = '완료';
+      setTimeout(()=>status.textContent='',2000);
+    } catch (err) {
+      output.textContent = "번역 중 오류가 발생했습니다. 다시 시도해주세요.";
+      status.textContent = '오류';
+    } finally {
+      go.disabled = false;
+    }
+  }
+
+  go.onclick = translate;
+  input.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') translate();
+  });
+
+  applyFont();
+</script>
+</body>
+</html>
